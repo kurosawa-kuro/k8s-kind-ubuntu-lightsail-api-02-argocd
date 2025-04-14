@@ -8,7 +8,7 @@ spec:
   project: default
 
   source:
-    repoURL: 'https://github.com/kurosawa-kuro/k8s-kind-ubuntu-lightsail-api-01-helm.git'
+    repoURL: 'https://github.com/kurosawa-kuro/k8s-kind-ubuntu-lightsail-api-02-argocd.git'
     targetRevision: HEAD
     path: my-app-chart
     helm:
