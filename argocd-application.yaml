@@ -1,0 +1,27 @@
+# file: argocd-application.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: container-api
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: 'https://github.com/kurosawa-kuro/k8s-kind-ubuntu-lightsail-api-01-helm.git'
+    targetRevision: HEAD
+    path: my-app-chart
+    helm:
+      releaseName: container-api
+      # values ファイルを追加したい場合は以下のように
+      # valueFiles:
+      #   - values.yaml
+
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: default
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
