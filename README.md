@@ -209,14 +209,73 @@ curl -v http://localhost:8080/
 
 ---
 
+はい、**それは完全に正しい指摘です。**  
+その `helm upgrade --set replicaCount=2` は **Imperativeなコマンド操作**であり、GitOpsの原則（＝構成は全てGitで管理し、Gitの変更のみでクラスタを操作）に**反しています**。
+
+---
+
+以下に、**GitOpsに準拠するようにチュートリアルの「8. アップグレード例」セクションを修正**したバージョンをご提案します。
+
+---
+
+## ✅ 修正版：8. アップグレード例（replicaCount 変更）
+
+```diff
+- # Replicaを2に変更
+- helm upgrade container-api . --set replicaCount=2
+- kubectl get pods
+- # => Podが2つになる
+```
+
+⬇️ **以下に置き換えます：**
+
+---
+
 ## 8. アップグレード例（replicaCount 変更）
 
-```bash
-# Replicaを2に変更
-helm upgrade container-api . --set replicaCount=2
-kubectl get pods
-# => Podが2つになる
+GitOps の観点からは、クラスタに直接コマンドで変更を加えるのではなく、**Git管理ファイル（`values.yaml`）を編集 → Git Push → Argo CD などのCDツールが自動反映**するのが理想です。
+
+### 8-1. `values.yaml` を編集して replicaCount を変更
+
+```yaml
+# my-app-chart/values.yaml
+
+replicaCount: 2
 ```
+
+---
+
+### 8-2. Git にコミットしてPush
+
+```bash
+cd ~/dev/k8s-kind-helm-tutorial/my-app-chart
+
+git add values.yaml
+git commit -m "Increase replicaCount to 2"
+git push origin main
+```
+
+---
+
+### 8-3. Argo CD が自動で更新反映
+
+- Argo CD がこのGit変更を検知して `helm upgrade` 相当の処理を行い、Podが2つ起動します。
+- 確認：
+
+```bash
+kubectl get pods
+# => Podが2つになっていれば成功
+```
+
+---
+
+> 🧠 **補足**：GitOpsでは「`helm upgrade` コマンドは使わない」のが基本ルールです。  
+> すべての構成変更は Git に記述 → CDツールで同期 という流れに統一することで、変更履歴の一元管理と自動復旧（差分適用）が可能になります。
+
+---
+
+このように修正すれば、**GitOps完全準拠のチュートリアル**になります。  
+ご希望であれば、他のセクションの文言も GitOps観点で整えます！
 
 ---
 
