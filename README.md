@@ -239,6 +239,118 @@ helm uninstall container-api
 
 これにより、Helm 入門者でも **高い再現性**・**成功率** で Kubernetes デプロイを体験できます。テンプレートファイルの改変を最小限にとどめるため、今後の拡張や修正も簡単です。  
 
+以下に、あなたのチュートリアルに**GitOps準拠のECRデプロイ項目**を「セクション11」として自然に追加しました。構成・トーンは既存チュートリアルに完全に合わせています。
 
-admin
-v1G9e1ziJN7aQAGn
+---
+
+## 11. ECR へのイメージPushと GitOps による Helm 自動アップデート
+
+このステップでは、**アプリの新しいDockerイメージをビルド → ECRへPush → Helm Chartの`values.yaml`を更新 → Gitへコミット＆Push** という一連のフローを行い、**GitOps的にArgo CDなどによる自動デプロイ**を実現します。
+
+> **ポイント**
+> - 手動 `helm upgrade` を使わず、**Gitの更新をトリガー**にデプロイ
+> - `image.tag` を更新するだけで Helm テンプレートに反映される設計
+
+---
+
+### 11-1. 現在の最新バージョンを確認 & タグをインクリメント
+
+```bash
+REPO="container-nodejs-api-8080"
+REGION="ap-northeast-1"
+ACCOUNT_ID="986154984217"
+
+# 最新の vX タグを取得して次のタグを生成（v4 → v5）
+LATEST_TAG=$(aws ecr list-images \
+  --repository-name $REPO \
+  --region $REGION \
+  --query 'imageIds[?contains(imageTag, `v`)].imageTag' \
+  --output text | grep ^v | sed 's/v//' | sort -nr | head -n1)
+NEXT_TAG="v$((LATEST_TAG + 1))"
+
+echo "次に使用するタグ: $NEXT_TAG"
+```
+
+---
+
+### 11-2. Dockerビルド & ECRにPush
+
+```bash
+docker build -t $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:$NEXT_TAG .
+
+aws ecr get-login-password --region $REGION | \
+  docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+
+docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:$NEXT_TAG
+```
+
+---
+
+### 11-3. `values.yaml` の image.tag を更新
+
+```bash
+# Chartのルートに移動（~/dev/k8s-kind-helm-tutorial/my-app-chart）
+cd ~/dev/k8s-kind-helm-tutorial/my-app-chart
+
+# tag を新しいものに書き換え
+sed -i "s/tag: .*/tag: \"$NEXT_TAG\"/" values.yaml
+```
+
+> Helm テンプレートでは以下のように定義されている前提です：
+>
+> ```yaml
+> image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+> ```
+
+---
+
+### 11-4. Gitコミット & Push（GitOpsトリガー）
+
+```bash
+git add values.yaml
+git commit -m "Update image tag to $NEXT_TAG"
+git push origin main
+```
+
+これにより、**Gitリポジトリの更新がトリガーとなって、Argo CD などが自動的に `helm upgrade` 相当の処理を実行**します。
+
+---
+
+### 🧠 応用：この一連の処理を自動化するスクリプト例
+
+```bash
+#!/bin/bash
+set -e
+
+REPO="container-nodejs-api-8080"
+REGION="ap-northeast-1"
+ACCOUNT_ID="986154984217"
+
+LATEST_TAG=$(aws ecr list-images \
+  --repository-name $REPO \
+  --region $REGION \
+  --query 'imageIds[?contains(imageTag, `v`)].imageTag' \
+  --output text | grep ^v | sed 's/v//' | sort -nr | head -n1)
+NEXT_TAG="v$((LATEST_TAG + 1))"
+
+docker build -t $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:$NEXT_TAG .
+aws ecr get-login-password --region $REGION | \
+  docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO:$NEXT_TAG
+
+cd ~/dev/k8s-kind-helm-tutorial/my-app-chart
+sed -i "s/tag: .*/tag: \"$NEXT_TAG\"/" values.yaml
+
+git add values.yaml
+git commit -m "Update image tag to $NEXT_TAG"
+git push origin main
+```
+
+---
+
+これで、**Helm Chart × Kind × ECR × GitOps** の最小構成ながらも、**本番さながらのCD体験がローカルで実現可能**になります。
+
+---
+
+> 📝 Argo CD 用の `Application.yaml` の例を付けたい場合は、お知らせください。  
+> Chartパスやブランチ名に応じて自動生成も可能です。
