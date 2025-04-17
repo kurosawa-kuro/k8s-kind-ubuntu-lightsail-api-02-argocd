@@ -1,8 +1,3 @@
-以下に **Helm 入門者**が高い成功確率・再現性で学習できるように、**Kind クラスター**を使って **Ingress/HPA/ServiceAccount を無効化**した最小構成の Helm Chart をデプロイする手順を **README形式** でまとめています。  
-「とりあえずこの手順を順番にコピペ・実行すれば同じ状態になる」ことを目標に、詳細説明を交えました。
-
----
-
 # Helm Chart 最小構成チュートリアル（Ingress/HPA/ServiceAccount 無効化）
 
 本チュートリアルでは、**Helm** の標準雛形をベースに **Ingress/HPA/ServiceAccount** を「削除」ではなく「設定で無効化」しつつ、**Kubernetes** 上に **Deployment/Service** のみをデプロイします。  
